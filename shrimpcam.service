@@ -1,0 +1,17 @@
+[Unit]
+Description=Shrimp Cam MJPEG streaming web app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Adjust User and paths if you cloned somewhere else or use a different user.
+User=pi
+WorkingDirectory=/home/pi/raspi-video-stream
+# Use the system Python so it can see the apt-installed python3-picamera2.
+ExecStart=/usr/bin/python3 /home/pi/raspi-video-stream/app.py
+Environment=PORT=8080
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

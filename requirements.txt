@@ -1,0 +1,4 @@
+Flask>=3.0
+Pillow>=10.0
+# picamera2 is NOT installed via pip on the Pi — it ships with Raspberry Pi OS
+# as a system package (sudo apt install -y python3-picamera2). See README.

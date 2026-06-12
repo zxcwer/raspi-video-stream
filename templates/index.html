@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shrimp Cam 🦐</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #0e1726;
+      color: #e6edf3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    header { padding: 1rem; text-align: center; }
+    h1 { margin: 0 0 .25rem; font-size: 1.5rem; }
+    p.sub { margin: 0; opacity: .6; font-size: .9rem; }
+    .stage {
+      width: min(96vw, 720px);
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    }
+    .stage img { display: block; width: 100%; height: auto; }
+    .controls { margin: 1rem; display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
+    a.btn, button.btn {
+      background: #1f6feb; color: #fff; border: none; text-decoration: none;
+      padding: .6rem 1rem; border-radius: 8px; font-size: .95rem; cursor: pointer;
+    }
+    a.btn.secondary { background: #30363d; }
+    footer { margin-top: auto; padding: 1rem; font-size: .8rem; opacity: .5; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Shrimp Cam 🦐</h1>
+    <p class="sub">Live view of the jar</p>
+  </header>
+
+  <div class="stage">
+    <!-- The browser renders multipart/x-mixed-replace natively as a live image. -->
+    <img id="stream" src="/stream.mjpg" alt="Live shrimp stream" />
+  </div>
+
+  <div class="controls">
+    <a class="btn" href="/snapshot.jpg" download="shrimp.jpg">📸 Save snapshot</a>
+    <button class="btn secondary" onclick="reload()">🔄 Reconnect</button>
+  </div>
+
+  <footer>Served from a Raspberry Pi · refresh if the image freezes</footer>
+
+  <script>
+    // If the stream stalls (e.g. brief WiFi drop), force the <img> to reconnect.
+    function reload() {
+      const img = document.getElementById('stream');
+      img.src = '/stream.mjpg?t=' + Date.now();
+    }
+  </script>
+</body>
+</html>
