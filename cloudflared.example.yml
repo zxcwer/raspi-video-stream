@@ -1,0 +1,18 @@
+# Cloudflare Tunnel config for Shrimp Cam.
+#
+# This file is read by `cloudflared tunnel run`. Replace the placeholders:
+#   - <TUNNEL_ID>      the UUID printed by `cloudflared tunnel create shrimpcam`
+#   - <USER>           your Pi username (e.g. pi)
+#   - shrimp.example.com   the hostname you route to this tunnel
+#
+# See README section "Publish to the internet with Cloudflare Tunnel".
+
+tunnel: <TUNNEL_ID>
+credentials-file: /home/<USER>/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  # Your public hostname -> the local Flask app.
+  - hostname: shrimp.example.com
+    service: http://localhost:8080
+  # Required catch-all: anything else returns 404.
+  - service: http_status:404

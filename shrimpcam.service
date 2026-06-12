@@ -10,6 +10,9 @@ WorkingDirectory=/home/pi/raspi-video-stream
 # Use the system Python so it can see the apt-installed python3-picamera2.
 ExecStart=/usr/bin/python3 /home/pi/raspi-video-stream/app.py
 Environment=PORT=8080
+# Uncomment to require a username/password (recommended when internet-facing):
+# Environment=SHRIMPCAM_USER=yourname
+# Environment=SHRIMPCAM_PASS=a-long-random-password
 Restart=on-failure
 RestartSec=3
 

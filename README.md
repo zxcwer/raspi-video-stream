@@ -136,13 +136,111 @@ JPEG_QUALITY = 75
 - Want it sharper? Raise the resolution — but watch CPU on a Pi Zero.
 - Change the port with the `PORT` env var (default `8080`).
 
-## Watching from outside your home
+## Security & authentication
 
-This app has **no authentication** — only expose it on your trusted LAN. To
-check on the shrimp while away, don't port-forward it directly. Instead use a
-secure tunnel such as **Tailscale** (`curl -fsSL https://tailscale.com/install.sh
-| sh`) or **Cloudflare Tunnel**, which give you private remote access without
-opening ports to the internet.
+The app supports optional **HTTP Basic Auth**. Set two environment variables and
+every endpoint (except `/healthz`) requires a username/password:
+
+```bash
+export SHRIMPCAM_USER=yourname
+export SHRIMPCAM_PASS=a-long-random-password
+python3 app.py
+```
+
+If `SHRIMPCAM_USER` is unset, auth is disabled (LAN-only mode). In the systemd
+service, add them under `[Service]`:
+
+```ini
+Environment=SHRIMPCAM_USER=yourname
+Environment=SHRIMPCAM_PASS=a-long-random-password
+```
+
+> ⚠️ **Never put this app directly on the public internet** (no port-forwarding!).
+> Even with Basic Auth, that exposes your home IP and an unhardened dev server.
+> Use a tunnel — see below.
+
+## Publish to the internet with Cloudflare Tunnel
+
+[Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
+gives your Pi a public HTTPS URL **without opening any ports or revealing your
+home IP** — `cloudflared` makes an outbound-only connection to Cloudflare.
+
+**The tunnel itself is not access control.** Anyone with the URL can watch unless
+you add auth. Use both layers below: Cloudflare Access (auth at the edge) **and**
+the app's Basic Auth (defense in depth).
+
+### Prerequisites
+- A **domain on Cloudflare** (free plan is fine). Buy a cheap domain and change
+  its nameservers to Cloudflare, or register one in the Cloudflare dashboard.
+- *No domain yet?* You can smoke-test with a **quick tunnel** — run
+  `cloudflared tunnel --url http://localhost:8080` and it prints a random
+  `https://<random>.trycloudflare.com` URL. It's ephemeral and **has no Access
+  protection**, so add `SHRIMPCAM_USER/PASS` and treat it as a temporary test
+  only.
+
+### 1. Install cloudflared on the Pi
+
+```bash
+# ARMv6 (original Pi Zero / Zero W):
+curl -L -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm
+# (Pi Zero 2 W / 64-bit OS: use ...cloudflared-linux-arm64)
+sudo install -m 755 cloudflared /usr/local/bin/cloudflared
+cloudflared --version
+```
+
+### 2. Authenticate and create the tunnel
+
+```bash
+cloudflared tunnel login                 # opens a browser link; pick your domain
+cloudflared tunnel create shrimpcam      # prints a TUNNEL_ID + creds JSON path
+cloudflared tunnel route dns shrimpcam shrimp.example.com   # your hostname
+```
+
+### 3. Configure it
+
+Copy [`cloudflared.example.yml`](cloudflared.example.yml) to
+`~/.cloudflared/config.yml` and fill in your `TUNNEL_ID`, username, and hostname.
+
+Test it:
+
+```bash
+cloudflared tunnel run shrimpcam
+# visit https://shrimp.example.com  — you should see the shrimp
+```
+
+### 4. Run it as a service
+
+```bash
+sudo cloudflared service install
+sudo systemctl enable --now cloudflared
+```
+
+Now both `shrimpcam.service` (the app) and `cloudflared` start on boot.
+
+### 5. Lock it down with Cloudflare Access (do this!)
+
+This is the real protection — auth happens at Cloudflare's edge before any
+request reaches your Pi:
+
+1. Cloudflare dashboard → **Zero Trust** → **Access** → **Applications** →
+   **Add an application** → **Self-hosted**.
+2. Set the application domain to `shrimp.example.com`.
+3. Add a policy: **Allow** → include **Emails** → just your own email address.
+4. Choose a login method (Email one-time PIN works with no extra setup).
+
+Now visitors must verify your email before they ever reach the camera. Combined
+with the app's `SHRIMPCAM_USER/PASS`, you have two independent locks.
+
+### A note on Cloudflare's terms
+Cloudflare's free plan discourages serving large amounts of video through their
+proxy. A low-fps, low-quality MJPEG shrimp cam is very little bandwidth and fine
+in practice — but if you later crank up resolution/fps, keep it reasonable.
+
+### Alternative: Tailscale (private, no domain needed)
+If you only want **yourself** (and people you invite) to watch — not a truly
+public URL — [Tailscale](https://tailscale.com/) is even simpler: install it
+(`curl -fsSL https://tailscale.com/install.sh | sh`), and reach the Pi at its
+Tailscale IP from any of your devices. No domain, no ports, no Access policies.
 
 ## Develop without a Pi
 
