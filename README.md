@@ -217,26 +217,65 @@ cloudflared tunnel create shrimpcam      # prints a TUNNEL_ID + creds JSON path
 cloudflared tunnel route dns shrimpcam shrimp.example.com   # your hostname
 ```
 
-### 3. Configure it
+### 3. Configure it and install the service
 
-Copy [`cloudflared.example.yml`](cloudflared.example.yml) to
-`~/.cloudflared/config.yml` and fill in your `TUNNEL_ID`, username, and hostname.
+> ⚠️ **The config must live in `/etc/cloudflared/`, not `~/.cloudflared/`.**
+> `sudo cloudflared service install` runs as **root**, so `~` means `/root` — a
+> config in your own home directory is invisible to it and you get:
+> `Cannot determine default configuration path. No file [config.yml config.yaml]`
+> The tunnel **credentials JSON** must be copied there too, for the same reason.
 
-Test it:
+The script handles all of that — writing the config, copying the credentials
+with safe permissions, validating the ingress rules, and installing the service:
 
 ```bash
-cloudflared tunnel run shrimpcam
-# visit https://shrimp.example.com  — you should see the shrimp
+TUNNEL_HOSTNAME=shrimp.example.com bash install-tunnel.sh
 ```
 
-### 4. Run it as a service
+It looks up the tunnel UUID by name (`shrimpcam` by default; override with
+`TUNNEL_NAME=`), so you never have to paste it by hand.
+
+<details>
+<summary>Doing it manually instead</summary>
 
 ```bash
+TUNNEL_ID=<uuid from `cloudflared tunnel list`>
+HOST=shrimp.example.com
+
+sudo mkdir -p /etc/cloudflared
+sudo cp ~/.cloudflared/$TUNNEL_ID.json /etc/cloudflared/
+sudo chmod 600 /etc/cloudflared/$TUNNEL_ID.json
+
+sudo tee /etc/cloudflared/config.yml > /dev/null <<EOF
+tunnel: $TUNNEL_ID
+credentials-file: /etc/cloudflared/$TUNNEL_ID.json
+
+ingress:
+  - hostname: $HOST
+    service: http://localhost:8080
+  - service: http_status:404
+EOF
+
 sudo cloudflared service install
 sudo systemctl enable --now cloudflared
 ```
 
+[`cloudflared.example.yml`](cloudflared.example.yml) is the same file as a
+template. To test *before* installing the service, you can run it in the
+foreground as your normal user:
+`cloudflared --config /etc/cloudflared/config.yml tunnel run shrimpcam`
+</details>
+
 Now both `shrimpcam.service` (the app) and `cloudflared` start on boot.
+
+### 4. Check it
+
+```bash
+systemctl status cloudflared --no-pager
+journalctl -u cloudflared -f          # look for "Registered tunnel connection"
+```
+
+Then visit `https://shrimp.example.com` — you should see the shrimp.
 
 ### 5. Lock it down with Cloudflare Access (do this!)
 
@@ -287,3 +326,7 @@ python app.py
 | Can't reach `shrimpcam.local` | Use the IP from `hostname -I`; some networks block mDNS |
 | Image is dark/blurry | Add light; clean the glass; let auto-exposure settle a few seconds |
 | Stream freezes occasionally | Click **Reconnect** on the page; check WiFi signal to the Pi |
+| `Cannot determine default configuration path. No file [config.yml config.yaml]` | The config isn't where the **root**-run service looks. Put it in `/etc/cloudflared/config.yml`, not `~/.cloudflared/` — or run `bash install-tunnel.sh` |
+| cloudflared: `Tunnel credentials file not found` | Copy it where root can read it: `sudo cp ~/.cloudflared/<TUNNEL_ID>.json /etc/cloudflared/` |
+| Public URL returns **502 Bad Gateway** | The tunnel is up but the app isn't. Check `systemctl status shrimpcam.service` and that the port matches `service: http://localhost:8080` |
+| Public URL returns **1033 / no DNS** | Missing DNS route: `cloudflared tunnel route dns shrimpcam <your-hostname>` |
