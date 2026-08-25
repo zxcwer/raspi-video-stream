@@ -233,10 +233,17 @@ TUNNEL_HOSTNAME=shrimp.example.com bash install-tunnel.sh
 ```
 
 It looks up the tunnel UUID by name (`shrimpcam` by default; override with
-`TUNNEL_NAME=`), so you never have to paste it by hand. It's safe to re-run: if
-a `cloudflared` service is already installed (including one left behind by a
-failed earlier attempt) it removes that unit first, so you won't hit
-*"cloudflared service is already installed"*.
+`TUNNEL_NAME=`), so you never have to paste it by hand. It's safe to re-run: it
+overwrites any existing `cloudflared` unit, including one left behind by a
+failed earlier attempt.
+
+The script writes the systemd unit itself rather than calling `sudo cloudflared
+service install`, which has two sharp edges: it refuses to overwrite an existing
+unit, and the unit it generates uses `Type=notify` — so if cloudflared doesn't
+send a readiness signal, systemd reports *"Job for cloudflared.service failed
+because a timeout was exceeded"* even though the tunnel runs perfectly in the
+foreground. The generated unit uses `Type=simple` and runs exactly the command
+you can test by hand.
 
 <details>
 <summary>Doing it manually instead</summary>
@@ -339,6 +346,7 @@ python app.py
 | `Cannot determine default configuration path. No file [config.yml config.yaml]` | The config isn't where the **root**-run service looks. Put it in `/etc/cloudflared/config.yml`, not `~/.cloudflared/` — or run `bash install-tunnel.sh` |
 | cloudflared: `Tunnel credentials file not found` | Copy it where root can read it: `sudo cp ~/.cloudflared/<TUNNEL_ID>.json /etc/cloudflared/` |
 | `cloudflared service is already installed at /etc/systemd/system/cloudflared.service` | A previous install left the unit behind. If its `ExecStart` already points at `/etc/cloudflared/config.yml`, just `sudo systemctl restart cloudflared`. Otherwise re-run `./install-tunnel.sh` — it now removes the old unit first (see below) |
-| `Job for cloudflared.service failed because a timeout was exceeded` | cloudflared started but never connected. **Run it in the foreground to see the real error:** `sudo cloudflared --config /etc/cloudflared/config.yml tunnel run` (Ctrl+C to stop). Usually a leftover unit pointing somewhere else, unfilled `<TUNNEL_ID>` placeholders, or credentials missing from `/etc/cloudflared/` |
+| `Job for cloudflared.service failed because a timeout was exceeded` | First check the foreground run: `sudo cloudflared --config /etc/cloudflared/config.yml tunnel run`. **If that works fine, the unit is at fault, not your config** — Cloudflare's generated unit uses `Type=notify` and times out waiting for a readiness signal. Re-run `./install-tunnel.sh`, which writes a `Type=simple` unit instead |
+| Foreground `tunnel run` errors out | Real config problem: unfilled `<TUNNEL_ID>` placeholder in `/etc/cloudflared/config.yml`, or credentials missing from `/etc/cloudflared/` |
 | Public URL returns **502 Bad Gateway** | The tunnel is up but the app isn't. Check `systemctl status shrimpcam.service` and that the port matches `service: http://localhost:8080` |
 | Public URL returns **1033 / no DNS** | Missing DNS route: `cloudflared tunnel route dns shrimpcam <your-hostname>` |
