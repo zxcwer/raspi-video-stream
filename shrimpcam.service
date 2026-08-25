@@ -4,11 +4,15 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-# Adjust User and paths if you cloned somewhere else or use a different user.
-User=pi
-WorkingDirectory=/home/pi/raspi-video-stream
+# NOTE: __USER__ and __DIR__ are placeholders. Either run ./install-service.sh,
+# which fills them in with your real username and repo path, or replace them by
+# hand before copying this file to /etc/systemd/system/.
+#
+# A wrong username here causes: status=217/USER "Failed at step USER".
+User=__USER__
+WorkingDirectory=__DIR__
 # Use the system Python so it can see the apt-installed python3-picamera2.
-ExecStart=/usr/bin/python3 /home/pi/raspi-video-stream/app.py
+ExecStart=/usr/bin/python3 __DIR__/app.py
 Environment=PORT=8080
 # Uncomment to require a username/password (recommended when internet-facing):
 # Environment=SHRIMPCAM_USER=yourname

@@ -99,15 +99,36 @@ http://shrimpcam.local:8080/
 
 So the stream comes back automatically after a reboot or power blip:
 
-```bash
-# Edit shrimpcam.service first if your username/path isn't pi:/home/pi
-sudo cp shrimpcam.service /etc/systemd/system/shrimpcam.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now shrimpcam.service
+Use the install script — it fills in **your** username and repo path
+automatically, so the service can't fail with a wrong user:
 
+```bash
+./install-service.sh
+
+# ...or bake in a password at the same time:
+SHRIMPCAM_USER=yourname SHRIMPCAM_PASS=a-long-random-password ./install-service.sh
+```
+
+Then:
+
+```bash
 systemctl status shrimpcam.service     # check it's active
 journalctl -u shrimpcam.service -f     # live logs
 ```
+
+<details>
+<summary>Doing it manually instead</summary>
+
+`shrimpcam.service` ships with `__USER__` / `__DIR__` placeholders. Replace both
+before installing, or systemd will fail with `status=217/USER`:
+
+```bash
+sed -e "s|__USER__|$(whoami)|g" -e "s|__DIR__|$PWD|g" shrimpcam.service \
+  | sudo tee /etc/systemd/system/shrimpcam.service > /dev/null
+sudo systemctl daemon-reload
+sudo systemctl enable --now shrimpcam.service
+```
+</details>
 
 ---
 
@@ -257,6 +278,10 @@ python app.py
 
 | Symptom | Fix |
 |---|---|
+| `status=217/USER` · `Failed at step USER spawning /usr/bin/python3` | The unit's `User=` doesn't exist on your Pi. Re-run `./install-service.sh` (it uses your real username), or fix `User=`/paths by hand — see below |
+| `status=200/CHDIR` | `WorkingDirectory=` points at a path that doesn't exist — set it to your actual repo location |
+| `status=203/EXEC` | `/usr/bin/python3` or `app.py` path is wrong — check with `ls -l /usr/bin/python3` and the path in `ExecStart` |
+| Service runs but camera fails, works when run by hand | The service user isn't in the `video` group: `sudo usermod -aG video $(whoami)` then reboot |
 | Page loads but image is broken | Camera not detected — re-seat ribbon, run `rpicam-hello`, check logs |
 | `Picamera2 unavailable ... using mock source` on the Pi | Install `sudo apt install -y python3-picamera2` and run with system `python3` (not a venv) |
 | Can't reach `shrimpcam.local` | Use the IP from `hostname -I`; some networks block mDNS |
