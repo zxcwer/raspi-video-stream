@@ -103,10 +103,10 @@ Use the install script — it fills in **your** username and repo path
 automatically, so the service can't fail with a wrong user:
 
 ```bash
-./install-service.sh
+bash install-service.sh
 
 # ...or bake in a password at the same time:
-SHRIMPCAM_USER=yourname SHRIMPCAM_PASS=a-long-random-password ./install-service.sh
+SHRIMPCAM_USER=yourname SHRIMPCAM_PASS=a-long-random-password bash install-service.sh
 ```
 
 Then:
@@ -278,7 +278,7 @@ python app.py
 
 | Symptom | Fix |
 |---|---|
-| `status=217/USER` · `Failed at step USER spawning /usr/bin/python3` | The unit's `User=` doesn't exist on your Pi. Re-run `./install-service.sh` (it uses your real username), or fix `User=`/paths by hand — see below |
+| `status=217/USER` · `Failed at step USER spawning /usr/bin/python3` | The unit's `User=` doesn't exist on your Pi. Re-run `bash install-service.sh` (it uses your real username), or fix `User=`/paths by hand — see below |
 | `status=200/CHDIR` | `WorkingDirectory=` points at a path that doesn't exist — set it to your actual repo location |
 | `status=203/EXEC` | `/usr/bin/python3` or `app.py` path is wrong — check with `ls -l /usr/bin/python3` and the path in `ExecStart` |
 | Service runs but camera fails, works when run by hand | The service user isn't in the `video` group: `sudo usermod -aG video $(whoami)` then reboot |
