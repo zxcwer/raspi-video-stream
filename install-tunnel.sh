@@ -94,10 +94,26 @@ echo
 echo "Validating ingress rules..."
 sudo cloudflared --config "${CONF_DIR}/config.yml" tunnel ingress validate
 
-# `service install` refuses to overwrite an existing unit, so replace cleanly.
-if systemctl list-unit-files 2>/dev/null | grep -q '^cloudflared\.service'; then
-  echo "Existing cloudflared service found — reinstalling."
-  sudo cloudflared service uninstall >/dev/null 2>&1 || true
+# `cloudflared service install` refuses to overwrite an existing unit:
+#   "cloudflared service is already installed at /etc/systemd/system/..."
+# A failed earlier install (e.g. one that couldn't find its config) still leaves
+# the unit file behind, so clear it out before reinstalling.
+UNIT="/etc/systemd/system/cloudflared.service"
+
+if [[ -f "${UNIT}" ]]; then
+  echo
+  echo "Existing cloudflared service found — replacing it."
+  sudo systemctl disable --now cloudflared >/dev/null 2>&1 || true
+  # `cloudflared service uninstall` can itself fail when the old config is
+  # missing or broken, so fall back to removing the unit files by hand.
+  if ! sudo cloudflared service uninstall >/dev/null 2>&1; then
+    echo "  (cloudflared service uninstall failed; removing unit files directly)"
+    sudo rm -f "${UNIT}" \
+      /etc/systemd/system/cloudflared-update.service \
+      /etc/systemd/system/cloudflared-update.timer
+  fi
+  sudo systemctl daemon-reload
+  sudo systemctl reset-failed cloudflared >/dev/null 2>&1 || true
 fi
 
 sudo cloudflared service install

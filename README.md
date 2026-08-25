@@ -233,7 +233,10 @@ TUNNEL_HOSTNAME=shrimp.example.com bash install-tunnel.sh
 ```
 
 It looks up the tunnel UUID by name (`shrimpcam` by default; override with
-`TUNNEL_NAME=`), so you never have to paste it by hand.
+`TUNNEL_NAME=`), so you never have to paste it by hand. It's safe to re-run: if
+a `cloudflared` service is already installed (including one left behind by a
+failed earlier attempt) it removes that unit first, so you won't hit
+*"cloudflared service is already installed"*.
 
 <details>
 <summary>Doing it manually instead</summary>
@@ -328,5 +331,6 @@ python app.py
 | Stream freezes occasionally | Click **Reconnect** on the page; check WiFi signal to the Pi |
 | `Cannot determine default configuration path. No file [config.yml config.yaml]` | The config isn't where the **root**-run service looks. Put it in `/etc/cloudflared/config.yml`, not `~/.cloudflared/` — or run `bash install-tunnel.sh` |
 | cloudflared: `Tunnel credentials file not found` | Copy it where root can read it: `sudo cp ~/.cloudflared/<TUNNEL_ID>.json /etc/cloudflared/` |
+| `cloudflared service is already installed at /etc/systemd/system/cloudflared.service` | A previous install left the unit behind. If its `ExecStart` already points at `/etc/cloudflared/config.yml`, just `sudo systemctl restart cloudflared`. Otherwise re-run `./install-tunnel.sh` — it now removes the old unit first (see below) |
 | Public URL returns **502 Bad Gateway** | The tunnel is up but the app isn't. Check `systemctl status shrimpcam.service` and that the port matches `service: http://localhost:8080` |
 | Public URL returns **1033 / no DNS** | Missing DNS route: `cloudflared tunnel route dns shrimpcam <your-hostname>` |
