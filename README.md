@@ -280,6 +280,13 @@ journalctl -u cloudflared -f          # look for "Registered tunnel connection"
 
 Then visit `https://shrimp.example.com` — you should see the shrimp.
 
+**If the service times out or won't start**, run the tunnel in the foreground —
+systemd only reports "timeout exceeded", while this prints the actual error:
+
+```bash
+sudo cloudflared --config /etc/cloudflared/config.yml tunnel run   # Ctrl+C to stop
+```
+
 ### 5. Lock it down with Cloudflare Access (do this!)
 
 This is the real protection — auth happens at Cloudflare's edge before any
@@ -332,5 +339,6 @@ python app.py
 | `Cannot determine default configuration path. No file [config.yml config.yaml]` | The config isn't where the **root**-run service looks. Put it in `/etc/cloudflared/config.yml`, not `~/.cloudflared/` — or run `bash install-tunnel.sh` |
 | cloudflared: `Tunnel credentials file not found` | Copy it where root can read it: `sudo cp ~/.cloudflared/<TUNNEL_ID>.json /etc/cloudflared/` |
 | `cloudflared service is already installed at /etc/systemd/system/cloudflared.service` | A previous install left the unit behind. If its `ExecStart` already points at `/etc/cloudflared/config.yml`, just `sudo systemctl restart cloudflared`. Otherwise re-run `./install-tunnel.sh` — it now removes the old unit first (see below) |
+| `Job for cloudflared.service failed because a timeout was exceeded` | cloudflared started but never connected. **Run it in the foreground to see the real error:** `sudo cloudflared --config /etc/cloudflared/config.yml tunnel run` (Ctrl+C to stop). Usually a leftover unit pointing somewhere else, unfilled `<TUNNEL_ID>` placeholders, or credentials missing from `/etc/cloudflared/` |
 | Public URL returns **502 Bad Gateway** | The tunnel is up but the app isn't. Check `systemctl status shrimpcam.service` and that the port matches `service: http://localhost:8080` |
 | Public URL returns **1033 / no DNS** | Missing DNS route: `cloudflared tunnel route dns shrimpcam <your-hostname>` |
